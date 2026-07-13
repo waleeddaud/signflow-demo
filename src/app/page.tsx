@@ -5,8 +5,14 @@ import { SigningForm } from "@/components/SigningForm";
 export default function Home() {
   return (
     <>
+      <a
+        href="#main-content"
+        className="no-print sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-paper focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-ink focus:shadow"
+      >
+        Skip to main content
+      </a>
       <SiteHeader />
-      <main className="flex-1 px-4 py-6 sm:px-6 sm:py-10">
+      <main id="main-content" className="flex-1 px-4 py-6 sm:px-6 sm:py-10">
         <div
           className="no-print mx-auto mb-6 max-w-3xl rounded border border-border bg-paper px-4 py-3 text-sm text-body"
           role="note"

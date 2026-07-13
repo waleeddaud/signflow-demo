@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   getDefaultSigningDate,
   signFormSchema,
@@ -28,14 +28,21 @@ const SignaturePad = dynamic(
 
 type FieldErrors = Partial<Record<keyof SignFormClientValues, string>>;
 
-function fieldError(
+function collectFieldErrors(
   issues: { path: PropertyKey[]; message: string }[],
-  key: keyof SignFormClientValues,
-): string | undefined {
-  return issues.find((issue) => issue.path[0] === key)?.message;
+): FieldErrors {
+  const next: FieldErrors = {};
+  for (const issue of issues) {
+    const key = issue.path[0] as keyof SignFormClientValues | undefined;
+    if (key && !next[key] && key !== "website" && key !== "formStartedAt") {
+      next[key] = issue.message;
+    }
+  }
+  return next;
 }
 
 export function SigningForm() {
+  const formRef = useRef<HTMLFormElement>(null);
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
   const [company, setCompany] = useState("");
@@ -44,8 +51,7 @@ export function SigningForm() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [website, setWebsite] = useState("");
-  const [formStartedAt] = useState(() => Date.now());
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formStartedAt, setFormStartedAt] = useState(() => Date.now());
   const [showErrors, setShowErrors] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -79,6 +85,11 @@ export function SigningForm() {
 
   const clientResult = useMemo(() => signFormSchema.safeParse(values), [values]);
 
+  const errors: FieldErrors = useMemo(() => {
+    if (!showErrors || clientResult.success) return {};
+    return collectFieldErrors(clientResult.error.issues);
+  }, [clientResult, showErrors]);
+
   const canSubmit =
     clientResult.success &&
     Boolean(signatureDataUrl) &&
@@ -86,21 +97,29 @@ export function SigningForm() {
     !submitting &&
     !isPending;
 
-  useEffect(() => {
-    if (!showErrors) return;
-    if (!clientResult.success) {
-      const next: FieldErrors = {};
-      for (const issue of clientResult.error.issues) {
-        const key = issue.path[0] as keyof SignFormClientValues | undefined;
-        if (key && !next[key] && key !== "website" && key !== "formStartedAt") {
-          next[key] = issue.message;
-        }
+  const focusFirstError = (fieldErrors: FieldErrors) => {
+    const order: (keyof SignFormClientValues)[] = [
+      "fullName",
+      "position",
+      "company",
+      "email",
+      "signingDate",
+      "signatureDataUrl",
+      "agreed",
+    ];
+    for (const key of order) {
+      if (!fieldErrors[key]) continue;
+      if (key === "signatureDataUrl") {
+        formRef.current
+          ?.querySelector<HTMLElement>("[aria-labelledby='signature-label']")
+          ?.focus();
+        return;
       }
-      setErrors(next);
-    } else {
-      setErrors({});
+      const el = formRef.current?.querySelector<HTMLElement>(`#${key}`);
+      el?.focus();
+      return;
     }
-  }, [clientResult, showErrors]);
+  };
 
   const resetForm = () => {
     setFullName("");
@@ -111,7 +130,7 @@ export function SigningForm() {
     setSignatureDataUrl(null);
     setAgreed(false);
     setWebsite("");
-    setErrors({});
+    setFormStartedAt(Date.now());
     setShowErrors(false);
     setSubmitError(null);
     setReceipt(null);
@@ -125,12 +144,7 @@ export function SigningForm() {
 
     const parsed = signFormSchema.safeParse(values);
     if (!parsed.success) {
-      const next: FieldErrors = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0] as keyof SignFormClientValues | undefined;
-        if (key && !next[key]) next[key] = issue.message;
-      }
-      setErrors(next);
+      focusFirstError(collectFieldErrors(parsed.error.issues));
       return;
     }
 
@@ -174,14 +188,17 @@ export function SigningForm() {
   }
 
   const inputClass =
-    "mt-1 w-full rounded border border-border bg-paper px-3 py-2.5 text-base text-body transition-colors placeholder:text-muted focus:border-action disabled:opacity-60";
+    "mt-1 w-full rounded border border-border bg-paper px-3 py-2.5 text-base text-body transition-colors placeholder:text-muted focus-visible:border-action disabled:opacity-60";
 
   return (
     <section
       className="mt-12 border-t border-border pt-10 font-sans"
       aria-labelledby="signing-heading"
     >
-      <h2 id="signing-heading" className="text-xl font-semibold text-ink">
+      <h2
+        id="signing-heading"
+        className="text-xl font-semibold text-pretty text-ink"
+      >
         Sign this agreement
       </h2>
       <p className="mt-2 text-sm text-muted">
@@ -189,9 +206,17 @@ export function SigningForm() {
         marked.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="mt-8 space-y-5"
+        noValidate
+      >
         {/* Honeypot — leave empty */}
-        <div className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden"
+          aria-hidden="true"
+        >
           <label htmlFor="website">Website</label>
           <input
             id="website"
@@ -287,6 +312,7 @@ export function SigningForm() {
               type="email"
               autoComplete="email"
               inputMode="email"
+              spellCheck={false}
               required
               disabled={submitting}
               value={email}
@@ -315,11 +341,17 @@ export function SigningForm() {
               value={signingDate}
               onChange={(e) => setSigningDate(e.target.value)}
               aria-invalid={Boolean(errors.signingDate)}
-              aria-describedby={errors.signingDate ? "signingDate-error" : undefined}
+              aria-describedby={
+                errors.signingDate ? "signingDate-error" : undefined
+              }
               className={inputClass}
             />
             {errors.signingDate ? (
-              <p id="signingDate-error" className="mt-1 text-sm text-error" role="alert">
+              <p
+                id="signingDate-error"
+                className="mt-1 text-sm text-error"
+                role="alert"
+              >
                 {errors.signingDate}
               </p>
             ) : null}
@@ -328,19 +360,14 @@ export function SigningForm() {
 
         <SignaturePad
           disabled={submitting}
-          error={
-            errors.signatureDataUrl ??
-            (!signatureDataUrl && Object.keys(errors).length > 0
-              ? fieldError(
-                  clientResult.success ? [] : clientResult.error.issues,
-                  "signatureDataUrl",
-                )
-              : undefined)
-          }
+          error={errors.signatureDataUrl}
           onSignatureChange={setSignatureDataUrl}
         />
 
-        <div className="flex items-start gap-3">
+        <label
+          htmlFor="agreed"
+          className="flex cursor-pointer items-start gap-3 rounded border border-transparent p-1 -m-1"
+        >
           <input
             id="agreed"
             name="agreed"
@@ -352,30 +379,32 @@ export function SigningForm() {
             aria-describedby={errors.agreed ? "agreed-error" : undefined}
             className="mt-1 size-5 shrink-0 rounded border-border text-action accent-action"
           />
-          <label htmlFor="agreed" className="text-sm leading-relaxed text-body">
+          <span className="text-sm leading-relaxed text-body">
             I confirm that I have read and agree to the Terms and Conditions
             shown above. <span className="text-error">*</span>
-          </label>
-        </div>
+          </span>
+        </label>
         {errors.agreed ? (
           <p id="agreed-error" className="-mt-3 text-sm text-error" role="alert">
             {errors.agreed}
           </p>
         ) : null}
 
-        {submitError ? (
-          <div
-            className="rounded border border-error/30 bg-error/5 px-4 py-3 text-sm text-error"
-            role="alert"
-          >
-            {submitError}
-          </div>
-        ) : null}
+        <div aria-live="polite" aria-atomic="true">
+          {submitError ? (
+            <div
+              className="rounded border border-error/30 bg-error/5 px-4 py-3 text-sm text-error"
+              role="alert"
+            >
+              {submitError}
+            </div>
+          ) : null}
+        </div>
 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded bg-action px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          className="inline-flex min-h-11 w-full touch-manipulation items-center justify-center rounded bg-action px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {submitting || isPending ? "Signing and sending…" : "Sign and Send"}
         </button>

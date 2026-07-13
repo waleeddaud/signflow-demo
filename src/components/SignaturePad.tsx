@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 
 type SignaturePadProps = {
@@ -16,9 +16,15 @@ export function SignaturePad({
 }: SignaturePadProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<SignatureCanvas>(null);
+  const onChangeRef = useRef(onSignatureChange);
   const [canvasWidth, setCanvasWidth] = useState(560);
+  const skipNextClear = useRef(true);
 
   useEffect(() => {
+    onChangeRef.current = onSignatureChange;
+  }, [onSignatureChange]);
+
+  useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
@@ -34,24 +40,26 @@ export function SignaturePad({
   }, []);
 
   useEffect(() => {
+    if (skipNextClear.current) {
+      skipNextClear.current = false;
+      return;
+    }
     canvasRef.current?.clear();
-    onSignatureChange(null);
-    // Re-initialize canvas when width changes; intentional reset.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- width-driven remount of drawing surface
+    onChangeRef.current(null);
   }, [canvasWidth]);
 
   const emitChange = () => {
     const canvas = canvasRef.current;
     if (!canvas || canvas.isEmpty()) {
-      onSignatureChange(null);
+      onChangeRef.current(null);
       return;
     }
-    onSignatureChange(canvas.toDataURL("image/png"));
+    onChangeRef.current(canvas.toDataURL("image/png"));
   };
 
   const handleClear = () => {
     canvasRef.current?.clear();
-    onSignatureChange(null);
+    onChangeRef.current(null);
   };
 
   return (
@@ -69,7 +77,7 @@ export function SignaturePad({
           type="button"
           onClick={handleClear}
           disabled={disabled}
-          className="shrink-0 rounded border border-border bg-paper px-3 py-1.5 text-sm font-medium text-body transition-colors hover:bg-page disabled:cursor-not-allowed disabled:opacity-50"
+          className="shrink-0 touch-manipulation rounded border border-border bg-paper px-3 py-1.5 text-sm font-medium text-body transition-colors hover:bg-page disabled:cursor-not-allowed disabled:opacity-50"
         >
           Clear signature
         </button>
@@ -80,6 +88,7 @@ export function SignaturePad({
         className="w-full overflow-hidden rounded border border-border bg-paper touch-none"
       >
         <SignatureCanvas
+          key={canvasWidth}
           ref={canvasRef}
           penColor="#14213D"
           backgroundColor="#FFFFFF"
@@ -92,6 +101,7 @@ export function SignaturePad({
             "aria-describedby": error
               ? "signature-error signature-hint"
               : "signature-hint",
+            tabIndex: 0,
             style: { width: "100%", height: "180px", touchAction: "none" },
           }}
           onEnd={emitChange}

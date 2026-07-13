@@ -4,7 +4,7 @@ export function TermsDocument() {
   return (
     <article className="font-serif text-body">
       <header className="border-b border-border pb-6">
-        <h1 className="text-2xl font-bold leading-snug tracking-tight text-ink sm:text-3xl">
+        <h1 className="text-2xl font-bold leading-snug tracking-tight text-pretty text-ink sm:text-3xl">
           {termsDocument.title}
         </h1>
         <p className="mt-3 text-sm text-muted" style={{ fontFamily: "var(--font-ibm-plex-sans)" }}>
@@ -17,7 +17,7 @@ export function TermsDocument() {
           <section key={section.id} id={section.id} aria-labelledby={`heading-${section.id}`}>
             <h2
               id={`heading-${section.id}`}
-              className="mb-3 text-xl font-semibold text-ink"
+              className="mb-3 scroll-mt-24 text-xl font-semibold text-pretty text-ink"
             >
               {section.heading}
             </h2>

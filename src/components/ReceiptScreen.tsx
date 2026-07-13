@@ -44,7 +44,9 @@ export function ReceiptScreen({ receipt, onStartNew }: ReceiptScreenProps) {
       <dl className="mt-8 grid gap-4 border-t border-border pt-6 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-muted">Receipt ID</dt>
-          <dd className="mt-1 break-all font-medium text-ink">{receipt.receiptId}</dd>
+          <dd className="mt-1 break-all font-medium tabular-nums text-ink">
+            {receipt.receiptId}
+          </dd>
         </div>
         <div>
           <dt className="text-muted">Document version</dt>
@@ -90,7 +92,7 @@ export function ReceiptScreen({ receipt, onStartNew }: ReceiptScreenProps) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded border border-border bg-paper px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-page"
+          className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded border border-border bg-paper px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-page"
         >
           <Printer className="size-4" aria-hidden="true" />
           Print / Save Receipt
@@ -98,7 +100,7 @@ export function ReceiptScreen({ receipt, onStartNew }: ReceiptScreenProps) {
         <button
           type="button"
           onClick={onStartNew}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded bg-action px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-action-hover"
+          className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded bg-action px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-action-hover"
         >
           <RotateCcw className="size-4" aria-hidden="true" />
           Start New Agreement
