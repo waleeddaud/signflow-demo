@@ -35,8 +35,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${ibmPlexSans.variable} ${sourceSerif.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      {/* suppressHydrationWarning: browser extensions (e.g. Testim) inject body attributes */}
+      <body
+        className="min-h-full flex flex-col font-sans"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }

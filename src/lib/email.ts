@@ -9,7 +9,7 @@ export type EmailAttachment = {
 };
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
@@ -18,9 +18,10 @@ function requireEnv(name: string): string {
 
 function createTransport() {
   const host = requireEnv("SMTP_HOST");
-  const port = Number(process.env.SMTP_PORT ?? "587");
+  const port = Number(process.env.SMTP_PORT?.trim() || "587");
   const user = requireEnv("SMTP_USER");
-  const pass = requireEnv("SMTP_PASSWORD");
+  // Gmail shows App Passwords as "xxxx xxxx xxxx xxxx" — spaces must be removed.
+  const pass = requireEnv("SMTP_PASSWORD").replace(/\s+/g, "");
 
   return nodemailer.createTransport({
     host,
@@ -28,6 +29,8 @@ function createTransport() {
     secure: false,
     requireTLS: true,
     auth: { user, pass },
+    tls: { minVersion: "TLSv1.2" },
+    connectionTimeout: 20_000,
   });
 }
 

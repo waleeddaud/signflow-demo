@@ -130,13 +130,43 @@ export async function POST(request: Request) {
       pdfBytes,
       pdfFilename: signedPdfFilename(receiptId),
     });
-  } catch {
-    // Do not expose SMTP details, credentials, or signature data.
+  } catch (error) {
+    // Do not expose SMTP credentials, stacks, or signature data to the client.
+    const err = error as Error & { code?: string; responseCode?: number };
+    const message = err?.message ?? "";
+    const missingEnv = message.startsWith("Missing required environment variable:");
+    const authFailed =
+      err?.code === "EAUTH" ||
+      err?.responseCode === 535 ||
+      /Invalid login|BadCredentials|Username and Password not accepted/i.test(
+        message,
+      );
+
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "[sign] email delivery failed:",
+        missingEnv
+          ? message
+          : authFailed
+            ? "EAUTH — Gmail rejected SMTP_USER / SMTP_PASSWORD"
+            : err?.code || message,
+      );
+    }
+
+    let clientError =
+      "The agreement was prepared, but email delivery failed. Please try again later.";
+    if (missingEnv) {
+      clientError =
+        "Email is not configured. Add SMTP settings to .env.local and restart the dev server.";
+    } else if (authFailed && process.env.NODE_ENV === "development") {
+      clientError =
+        "Gmail rejected the SMTP login (535). Confirm SMTP_USER is the full Gmail address and SMTP_PASSWORD is a 16-character App Password (not your normal password), then restart npm run dev.";
+    }
+
     return NextResponse.json(
       {
         ok: false,
-        error:
-          "The agreement was prepared, but email delivery failed. Please try again later.",
+        error: clientError,
       },
       { status: 502 },
     );
